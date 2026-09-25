@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { CASES, KPIS, MIX, INTENTS, VISITS } from './data.js'
+import { TOUR } from './tour.js'
 
 const inr = (n) => '₹' + n.toLocaleString('en-IN')
 const STATE = {
@@ -31,6 +32,22 @@ export default function App() {
   const [filter, setFilter] = useState('all')
   const [toast, setToast] = useState('')
   const c = cases.find((x) => x.id === sel)
+  const [intro, setIntro] = useState(true)
+  const [step, setStep] = useState(-1)
+  const cur = step >= 0 ? TOUR[step] : null
+
+  useEffect(() => {
+    document.querySelectorAll('.tour-hl').forEach((e) => e.classList.remove('tour-hl'))
+    if (!cur) return
+    setTab(cur.tab)
+    if (cur.case) { setSel(cur.case); setFilter('all') }
+    const t = setTimeout(() => {
+      const el = document.querySelector(`[data-tour="${cur.target}"]`)
+      if (el) { el.classList.add('tour-hl'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
+    }, 120)
+    return () => clearTimeout(t)
+  }, [step])
+  const startTour = () => { setIntro(false); setCases(CASES); setStep(0) }
 
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(''), 2600); return () => clearTimeout(t) } }, [toast])
 
@@ -76,18 +93,19 @@ export default function App() {
         {[['console', 'Case queue'], ['chat', 'Merchant chat'], ['insights', 'Insights'], ['field', 'Field app']].map(([k, l]) => (
           <button key={k} className={`nav ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}{k === 'console' && counts('approval') > 0 && <span className="badge">{counts('approval')}</span>}</button>
         ))}
-        <div className="sidefoot"><span className="dot live" /> Live · Jev + gpt-oss<br /><small>Synthetic data · demo build</small></div>
+        <button className="tourbtn" onClick={startTour}>▶ Guided tour</button>
+        <div className="sidefoot">Powered by Jev + gpt-oss</div>
       </aside>
 
       <main className="main">
         <header className="top">
           <input className="search" placeholder="Search case, MID, UTR, RRN…" />
-          <div className="me"><span className="ai">AI teammate active</span> Priya · Ops L1</div>
+          <div className="me"><span className="notlive">Data not live</span><span className="ai">AI teammate active</span> Priya · Ops L1</div>
         </header>
 
         {tab === 'console' && (
           <div className="console">
-            <section className="queue">
+            <section className="queue" data-tour="queue">
               <div className="views">
                 {[['all', 'All'], ['running', 'AI working'], ['approval', 'Needs approval'], ['human', 'Human'], ['resolved', 'Resolved']].map(([k, l]) => (
                   <button key={k} className={`view ${filter === k ? 'on' : ''}`} onClick={() => setFilter(k)}>{l} <b>{k === 'all' ? cases.length : counts(k)}</b></button>
@@ -111,7 +129,7 @@ export default function App() {
                   <div className="muted">{c.id} · {c.meta}</div>
                   <h2>{c.issue} · {c.who}</h2>
                 </div>
-                <div className="acts">
+                <div className="acts" data-tour="takeover">
                   <Chip kind={STATE[c.state][1]} icon={STATE[c.state][2]}>{STATE[c.state][0]}</Chip>
                   <button className="btn ghost" onClick={() => setToast('AI paused.')}>Pause AI</button>
                   <button className="btn dark" onClick={takeOver}>Take over</button>
@@ -119,7 +137,7 @@ export default function App() {
               </div>
 
               <div className="cols">
-                <div className="convo">
+                <div className="convo" data-tour="convo">
                   <h4>Conversation</h4>
                   <div className="bubble user">{c.lang === 'hi' && <span className="voice">▶ voice 0:07</span>}{c.msg}</div>
                   <div className="bubble ai"><span className="aitag">AI</span>{c.lang === 'hi' ? 'Samajh gaya. Main abhi check kar raha hoon.' : 'Got it. Checking this for you right now.'}</div>
@@ -128,7 +146,7 @@ export default function App() {
                   <div className="banner">Paytm kabhi PIN/OTP nahi maangta</div>
                 </div>
 
-                <div className="timeline">
+                <div className="timeline" data-tour="timeline">
                   <h4>Agent timeline</h4>
                   {c.steps.map((s, i) => {
                     const [label, kind, icon] = STEP[s[0]]
@@ -144,7 +162,7 @@ export default function App() {
                     )
                   })}
                   {c.state === 'approval' && c.approval && (
-                    <div className="approval">
+                    <div className="approval" data-tour="approval">
                       <div className="atitle">{c.approval.title}</div>
                       <ul>{c.approval.why.map((w) => <li key={w}>{w}</li>)}</ul>
                       <div className="muted small">Effect: {c.approval.effect} · <Conf v={c.conf} /></div>
@@ -157,7 +175,7 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="c360">
+                <div className="c360" data-tour="c360">
                   <h4>Customer 360</h4>
                   <dl>
                     <dt>On Paytm since</dt><dd>{c.c360.since}</dd>
@@ -177,7 +195,7 @@ export default function App() {
 
         {tab === 'chat' && (
           <div className="phonewrap">
-            <div className="phone">
+            <div className="phone" data-tour="chat">
               <div className="phead"><b>Paytm Sahayak</b> <span className="aitag">AI</span><div className="muted small">Gupta Medical · MID ••2290</div></div>
               <div className="pbody">
                 <div className="banner">🛡 Paytm kabhi PIN/OTP nahi maangta</div>
@@ -197,7 +215,7 @@ export default function App() {
 
         {tab === 'insights' && (
           <div className="insights">
-            <div className="kpis">{KPIS.map(([l, v, d]) => <div key={l} className="kpi"><div className="kl">{l}</div><div className="kv">{v}</div><div className="kd">{d}</div></div>)}</div>
+            <div className="kpis" data-tour="kpis">{KPIS.map(([l, v, d]) => <div key={l} className="kpi"><div className="kl">{l}</div><div className="kv">{v}</div><div className="kd">{d}</div></div>)}</div>
             <div className="grid2">
               <div className="panel"><h4>Resolution mix</h4>{MIX.map(([l, v]) => <div key={l} className="bar"><span>{l}</span><div><i style={{ width: v + '%' }} /></div><b>{v}%</b></div>)}</div>
               <div className="panel"><h4>Top intents</h4>{INTENTS.map(([l, v]) => <div key={l} className="bar"><span>{l}</span><div><i style={{ width: v * 3 + '%' }} /></div><b>{v}%</b></div>)}</div>
@@ -209,7 +227,7 @@ export default function App() {
 
         {tab === 'field' && (
           <div className="phonewrap">
-            <div className="phone">
+            <div className="phone" data-tour="field">
               <div className="phead"><b>Aaj ke visits (3)</b><div className="muted small">Rahul · FSE Pune West · Route optimised by AI</div></div>
               <div className="pbody">
                 {VISITS.map(([t, n, d, tag]) => (
@@ -226,6 +244,40 @@ export default function App() {
         )}
       </main>
       {toast && <div className="toast">{toast}</div>}
+      {intro && (
+        <div className="overlay">
+          <div className="intro">
+            <div className="logo big">pay<b>tm</b> <span>Sahayak Ops</span></div>
+            <h1>An AI teammate that closes ops cases, not just tickets.</h1>
+            <p>Sahayak picks up customer service and sales cases, decides what to do with a confidence score, takes actions across settlement, device, billing and field systems, and brings in a human only when money, risk or trust needs one.</p>
+            <div className="notice">ⓘ The data on this page is not live. It is sample data to show how the experience works.</div>
+            <div className="stops">
+              <div><b>1</b>Case queue</div><div><b>2</b>Agent timeline</div><div><b>3</b>Human approval</div><div><b>4</b>Handoff</div><div><b>5</b>Merchant chat</div><div><b>6</b>Field app</div><div><b>7</b>Insights</div>
+            </div>
+            <div className="ibtns">
+              <button className="btn primary" onClick={startTour}>Start guided tour (2 min)</button>
+              <button className="btn ghost" onClick={() => setIntro(false)}>Explore on my own</button>
+            </div>
+            <div className="muted small">Team Kala Dhua · Paytm AI Hackathon · Autonomous AI Teammates</div>
+          </div>
+        </div>
+      )}
+      {cur && (
+        <div className={`coach ${["queue", "chat", "field", "kpis"].includes(cur.target) ? "" : "left"}`} role="dialog" aria-live="polite">
+          <div className="cstep">Step {step + 1} of {TOUR.length}</div>
+          <div className="ctitle">{cur.title}</div>
+          <p>{cur.text}</p>
+          {cur.try && <div className="ctry">👉 {cur.try}</div>}
+          <div className="cbtns">
+            <button className="btn ghost" onClick={() => setStep(-1)}>Exit</button>
+            <span>
+              {step > 0 && <button className="btn ghost" onClick={() => setStep(step - 1)}>Back</button>}
+              <button className="btn primary" onClick={() => setStep(step + 1 < TOUR.length ? step + 1 : -1)}>{step + 1 < TOUR.length ? 'Next' : 'Finish'}</button>
+            </span>
+          </div>
+          <div className="cprog"><i style={{ width: ((step + 1) / TOUR.length) * 100 + '%' }} /></div>
+        </div>
+      )}
     </div>
   )
 }
